@@ -56,7 +56,7 @@ RasterPoint* read_raster_from_file(const char *filename, int *raster_size)
     {
         if (read != 3)
         {
-            printf("%s: File format doesn't correspond to a xyz raster file\n");
+            printf("%s: File format doesn't correspond to a xyz raster file\n", filename);
             free(raster_buffer);
             fclose(raster_file);
             exit(0);
@@ -97,8 +97,9 @@ LandType clc_to_land_type(int clc_value)
         return AGRICULTURE;
     if (clc_value <= CLC_FOREST_CUTOFF)
         return FOREST;
-    if (clc_value <= CLC_WATER_CUTOFF)
-        return WATER;
+//  if (clc_value <= CLC_WATER_CUTOFF)
+
+    return WATER;
 }
 
 typedef enum LandState
@@ -128,6 +129,7 @@ typedef struct FireSimulation
     int generations;
 } FireSimulation;
 
+// Improve args parsing logic
 void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_raster_file_name, char **land_cover_raster_file_name)
 {
     *elevation_raster_file_name = NULL;
@@ -147,7 +149,7 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
             sim->generations = atoi(argv[++i]);
         else
         {
-            printf("Correct usage message placeholder\n"); //Improve
+            printf("Correct usage message placeholder\n"); // Improve
             exit(0);
         }
     }
@@ -155,12 +157,12 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
     if (elevation_raster_file_name == NULL || land_cover_raster_file_name == NULL 
         || sim->scale <= 0 || sim->generations <= 0)
     {
-        printf("Correct usage message placeholder\n"); //Improve
+        printf("Correct usage message placeholder\n"); // Improve
         exit(0); 
     }
 }
 
-//Refactor
+// Refactor
 void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
     float elevation_min_x = elevation_raster[0].x_cordinate;
@@ -199,7 +201,7 @@ void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, Raste
     if (elevation_min_x != land_cover_min_x || elevation_max_x != land_cover_max_x ||
         elevation_min_y != land_cover_min_y || elevation_max_y != land_cover_max_y)
     {
-        printf("Raster files mismatch\n");
+        printf("Raster file boundaries do not correspond\n");
         free(elevation_raster);
         free(land_cover_raster);
         exit(0);
@@ -238,7 +240,7 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
 {
     if (sim->grid_height * sim->grid_width != size)
     {
-        printf("Computed grid size doesn't correspond to raster files sizes\n");
+        printf("Computed grid size doesn't correspond to the size of given raster files\n");
         free(elevation_raster);
         free(land_cover_raster);
         free_grids(sim);
@@ -254,12 +256,12 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
         int land_cover_j = (int) (land_cover_curr.x_cordinate - sim->min_x) / sim->scale;
         int land_cover_k = (int) (land_cover_curr.y_cordinate - sim->min_y) / sim->scale;
 
-        //Since indices might not correspond we change values manually insted of using a new_cell func
+        // Since indices might not correspond we change values manually insted of using a new_cell func
         sim->curr_grid[elevation_j][elevation_k].elevation = elevation_curr.z_value;
 
         if (land_cover_curr.z_value < CLC_MIN_VALUE || land_cover_curr.z_value > CLC_MAX_VALUE)
         {
-            printf("Invalid land cover value\n");
+            printf("Invalid land cover value on land cover raster file\n");
             free(elevation_raster);
             free(land_cover_raster);
             free_grids(sim);
@@ -277,7 +279,7 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
     }
 }
 
-//Aux struct
+// Aux struct
 typedef struct Point
 {
     int i;
@@ -286,7 +288,7 @@ typedef struct Point
 
 void set_random_ignition_point(FireSimulation *sim)
 {
-    //VLA BAD
+    // VLA BAD
     int size = 0;
     Point valid_points[sim->grid_height * sim->grid_width];
     for (int i = 0; i < sim->grid_height; i++)
@@ -324,12 +326,12 @@ void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
     RasterPoint *land_cover_raster = read_raster_from_file(land_cover_raster_file_name, &land_cover_raster_size);
     if (elevation_raster_size != land_cover_raster_size)
     {
-        printf("Raster files mismatch\n");
+        printf("Raster file sizes do not correspond\n");
         free(elevation_raster);
         free(land_cover_raster);
         exit(0);
     }
-    int size = elevation_raster_size; //elevation_raster_size == land_cover_raster_size
+    int size = elevation_raster_size; // elevation_raster_size == land_cover_raster_size
     
     compute_grid_size(sim, elevation_raster, land_cover_raster, size);
     alloc_grids(sim);
@@ -407,6 +409,29 @@ void print_grid(FireSimulation *sim)
     }
 }
 
+void write_grid_to_file(FireSimulation *sim, char *filename)
+{
+    FILE *f_out = fopen(filename, "w");
+    if (f_out == NULL)
+    {
+        printf("%s: Error while creating file\n", filename);
+        free_grids(sim);
+        exit(0);
+    }
+
+    fprintf(f_out, "%d;%d\n", sim->grid_height, sim->grid_width);
+    for (int i = 0; i < sim->grid_height; i++)
+    {
+        fprintf(f_out, "%d,%d,%d", sim->curr_grid[i][0].elevation, sim->curr_grid[i][0].land_type, sim->curr_grid[i][0].land_state);
+        for (int j = 1; j < sim->grid_width; j++)
+            fprintf(f_out, ";%d,%d,%d", sim->curr_grid[i][j].elevation, sim->curr_grid[i][j].land_type, sim->curr_grid[i][j].land_state);
+        fprintf(f_out, "\n");
+    }
+
+    fflush(f_out);
+    fclose(f_out);
+}
+
 int main(int argc, char **argv)
 {
     FireSimulation sim;
@@ -421,6 +446,8 @@ int main(int argc, char **argv)
 
     print_grid(&sim);
     printf("\n");
+    
+    // write_grid_to_file(&sim, "result.csv");
 
     free_grids(&sim);
 

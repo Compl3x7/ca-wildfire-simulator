@@ -1,7 +1,3 @@
-// TODO 
-// Improve current error/warning messages
-// Improve grid data verefication, as of now it is unsafe
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -129,7 +125,7 @@ typedef struct FireSimulation
     int generations;
 } FireSimulation;
 
-// Improve args parsing logic
+// TODO Write usage message 
 void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_raster_file_name, char **land_cover_raster_file_name)
 {
     *elevation_raster_file_name = NULL;
@@ -149,7 +145,7 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
             sim->generations = atoi(argv[++i]);
         else
         {
-            printf("Correct usage message placeholder\n"); // Improve
+            printf("Correct usage message placeholder\n");
             exit(0);
         }
     }
@@ -157,12 +153,12 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
     if (elevation_raster_file_name == NULL || land_cover_raster_file_name == NULL 
         || sim->scale <= 0 || sim->generations <= 0)
     {
-        printf("Correct usage message placeholder\n"); // Improve
+        printf("Correct usage message placeholder\n");
         exit(0); 
     }
 }
 
-// Refactor
+// TODO Improve raster's validation
 void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
     float elevation_min_x = elevation_raster[0].x_cordinate;
@@ -235,7 +231,7 @@ void free_grids(FireSimulation *sim)
     free(sim->next_grid);
 }
 
-//Refactor
+// TODO Improve raster's validation
 void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
     if (sim->grid_height * sim->grid_width != size)
@@ -252,9 +248,9 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
         RasterPoint elevation_curr = elevation_raster[i];
         RasterPoint land_cover_curr = land_cover_raster[i];
         int elevation_j = (int) (elevation_curr.x_cordinate - sim->min_x) / sim->scale;
-        int elevation_k = (int) (elevation_curr.y_cordinate - sim->min_y) / sim->scale;
+        int elevation_k = sim->grid_width - 1 - (int) (elevation_curr.y_cordinate - sim->min_y) / sim->scale;
         int land_cover_j = (int) (land_cover_curr.x_cordinate - sim->min_x) / sim->scale;
-        int land_cover_k = (int) (land_cover_curr.y_cordinate - sim->min_y) / sim->scale;
+        int land_cover_k = sim->grid_width - 1 - (int) (land_cover_curr.y_cordinate - sim->min_y) / sim->scale;
 
         // Since indices might not correspond we change values manually insted of using a new_cell func
         sim->curr_grid[elevation_j][elevation_k].elevation = elevation_curr.z_value;
@@ -288,7 +284,7 @@ typedef struct Point
 
 void set_random_ignition_point(FireSimulation *sim)
 {
-    // VLA BAD
+    // TODO VLA BAD
     int size = 0;
     Point valid_points[sim->grid_height * sim->grid_width];
     for (int i = 0; i < sim->grid_height; i++)
@@ -436,19 +432,26 @@ int main(int argc, char **argv)
 {
     FireSimulation sim;
 
+    // TODO Implement file output logic
+    // char *out_filenames[3] = {"results/gen_10.csv", "results/gen_50.csv", "results/gen_100.csv"};
+    // int files_index = 0;
+
     init_fire_simulation(&sim, argc, argv);
 
-    print_grid(&sim);
-    printf("\n");
+    // print_grid(&sim);
+    // printf("\n");
 
     for (int i = 0 ; i < sim.generations; i++)
+    {
+        // if (i == 10 || i == 50 || i == 100)
+        //     write_grid_to_file(&sim, out_filenames[files_index++]);
+            
         simulate(&sim);
+    }
 
-    print_grid(&sim);
-    printf("\n");
+    // print_grid(&sim);
+    // printf("\n");
     
-    // write_grid_to_file(&sim, "result.csv");
-
     free_grids(&sim);
 
     return 0;

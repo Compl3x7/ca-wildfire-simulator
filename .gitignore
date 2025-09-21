@@ -1,4 +1,4 @@
 *.tif
 *.out
 *.xml
-*venv/
+*.venv/

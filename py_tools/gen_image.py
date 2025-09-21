@@ -1,5 +1,21 @@
+import sys
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageColor
+from enum import IntEnum
+
+class LandState(IntEnum):
+    UNIGNITABLE = 0,
+    UNIGNITED = 1,
+    BURNING = 2,
+    BURNT = 3
+
+class LandType(IntEnum):
+    FOREST = 0
+    AGRICULTURE = 1
+    URBAN = 2
+    WATER = 3
+    BURNT_LAND = 4
+
 
 def read_grid(filename):
    with open(filename) as f:
@@ -7,31 +23,44 @@ def read_grid(filename):
     line = f.readline().strip("\n")
     split_line = line.split(";", 2)
     
-    grid = np.empty(shape=(int(split_line[0]), int(split_line[1])), dtype=int)
+    # For now no altitude visualization
+    grid = np.empty(shape=(int(split_line[0]), int(split_line[1]), 2), dtype=int)
     for i in range(grid.shape[0]):
         line = f.readline().strip("\n")
         split_line = line.split(";")
         for j in range(grid.shape[1]):
             values = split_line[j].split(",")
-            grid[i][j] = int(values[2])
+            grid[i][j][0] = int(values[1])
+            grid[i][j][1] = int(values[2])
 
     return grid
 
-colors = [
-    (0, 0, 0),
-    (0, 255, 0),
-    (255, 0, 0),
-    (0, 0, 0)
-]
+def define_color(values):
+    if (values[1] == LandState.BURNING.value):
+        return (255, 0, 0) # RED
+    if (values[1] == LandState.BURNT.value):
+        return (0, 0, 0) # BLACK
+    
+    if (values[0] == LandType.FOREST.value):
+        return (0, 128, 0) # DARK GREEN
+    if (values[0] == LandType.AGRICULTURE.value):
+        return (0, 255, 0) # GREEN
+    if (values[0] == LandType.URBAN.value):
+        return (64, 64, 64) # DARK GRAY
+    if (values[0] == LandType.WATER.value):
+        return (0, 128, 255) # DARK CYAN
 
-grid = read_grid("result.csv")
+# TODO Argument parsing
+    
+grid = read_grid(sys.argv[1])
+scaling_factor = int(sys.argv[3])
 
-img = Image.new(mode="RGB", size=(grid.shape[1], grid.shape[0]))
+img = Image.new(mode="RGB", size=(grid.shape[0], grid.shape[1]))
 pixels = img.load()
 
 for i in range(grid.shape[0]):
     for j in range(grid.shape[1]):
-        pixels[j, i] = colors[grid[i][j]]
+        pixels[i, j] = define_color(grid[i][j])
 
-img = img.resize(size=(10 * grid.shape[1], 10 * grid.shape[0]), resample=Image.Resampling.NEAREST)
-img.save('result.png')
+img = img.resize(size=(scaling_factor * grid.shape[1], scaling_factor * grid.shape[0]), resample=Image.Resampling.NEAREST)
+img.save(sys.argv[2])

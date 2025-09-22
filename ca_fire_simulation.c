@@ -115,6 +115,7 @@ typedef struct Cell
 
 typedef struct FireSimulation
 {
+    unsigned int base_seed;
     int grid_height;
     int grid_width;
     float min_x;
@@ -125,13 +126,14 @@ typedef struct FireSimulation
     int generations;
 } FireSimulation;
 
-// TODO Write usage message 
+// TODO Write usage message and improve logic and error handling
 void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_raster_file_name, char **land_cover_raster_file_name)
 {
     *elevation_raster_file_name = NULL;
     *land_cover_raster_file_name = NULL;
-    sim->scale = -1.00;
+    sim->scale = 0.00;
     sim->generations = 100;
+    sim->base_seed = time(NULL);
 
     for (int i = 1; i < argc; i++)
     {
@@ -139,10 +141,12 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
             *elevation_raster_file_name = argv[++i];
         else if (strcmp(argv[i], "-l") == 0 && i + 1 < argc)
             *land_cover_raster_file_name = argv[++i];
-        else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--scale") == 0 && i + 1 < argc)
             sim->scale = atof(argv[++i]);
-        else if (strcmp(argv[i], "-gens") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--gens") == 0 && i + 1 < argc)
             sim->generations = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc)
+            sim->base_seed = atoi(argv[++i]);
         else
         {
             printf("Correct usage message placeholder\n");
@@ -151,7 +155,7 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
     }
 
     if (elevation_raster_file_name == NULL || land_cover_raster_file_name == NULL 
-        || sim->scale <= 0 || sim->generations <= 0)
+        || sim->scale <= 0 || sim->generations <= 0 || sim->base_seed < 0)
     {
         printf("Correct usage message placeholder\n");
         exit(0); 
@@ -310,8 +314,6 @@ void copy_to_next_grid(FireSimulation *sim)
 
 void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
 {
-    srand(time(NULL));
-
     char *elevation_raster_file_name;
     char *land_cover_raster_file_name;
     parse_args(sim, argc, argv, &elevation_raster_file_name, &land_cover_raster_file_name);
@@ -328,7 +330,8 @@ void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
         exit(0);
     }
     int size = elevation_raster_size; // elevation_raster_size == land_cover_raster_size
-    
+
+    srand(sim->base_seed);    
     compute_grid_size(sim, elevation_raster, land_cover_raster, size);
     alloc_grids(sim);
     populate_grids(sim, elevation_raster, land_cover_raster, size);
@@ -433,8 +436,6 @@ int main(int argc, char **argv)
     FireSimulation sim;
 
     // TODO Implement file output logic
-    // char *out_filenames[3] = {"results/gen_10.csv", "results/gen_50.csv", "results/gen_100.csv"};
-    // int files_index = 0;
 
     init_fire_simulation(&sim, argc, argv);
 
@@ -442,12 +443,9 @@ int main(int argc, char **argv)
     // printf("\n");
 
     for (int i = 0 ; i < sim.generations; i++)
-    {
-        // if (i == 10 || i == 50 || i == 100)
-        //     write_grid_to_file(&sim, out_filenames[files_index++]);
-            
         simulate(&sim);
-    }
+
+    write_grid_to_file(&sim, "results/seed_0_gens_default.csv");
 
     // print_grid(&sim);
     // printf("\n");

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <gsl/gsl_rng.h>
 
 #define CLC_URBAN_CUTOFF 11
 #define CLC_AGRICUTLTURE_CUTOFF 22
@@ -116,6 +117,7 @@ typedef struct Cell
 typedef struct FireSimulation
 {
     unsigned int base_seed;
+    gsl_rng *rand;
     int grid_height;
     int grid_width;
     float min_x;
@@ -300,7 +302,7 @@ void set_random_ignition_point(FireSimulation *sim)
                 size++;
             }
 
-    int random = rand() % size;
+    int random = gsl_rng_uniform_int(sim->rand, size);
     Point selected = valid_points[random];
     sim->curr_grid[selected.i][selected.j].land_state = BURNING;
 }
@@ -331,7 +333,8 @@ void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
     }
     int size = elevation_raster_size; // elevation_raster_size == land_cover_raster_size
 
-    srand(sim->base_seed);    
+    sim->rand = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(sim->rand, sim->base_seed);
     compute_grid_size(sim, elevation_raster, land_cover_raster, size);
     alloc_grids(sim);
     populate_grids(sim, elevation_raster, land_cover_raster, size);
@@ -372,7 +375,7 @@ void spread_fire(FireSimulation *sim, int i, int j)
             if (in_bounds(sim, k, l) && sim->curr_grid[k][l].land_state == UNIGNITED && sim->next_grid[k][l].land_state == UNIGNITED)
             {
                 float p_burn = compute_p_burn(sim, i, j, k, l);
-                float random = (float) rand() / RAND_MAX;
+                float random = gsl_rng_uniform(sim->rand);
                 if (random < p_burn) 
                     sim->next_grid[k][l].land_state = BURNING;
             }
@@ -451,6 +454,7 @@ int main(int argc, char **argv)
     // printf("\n");
     
     free_grids(&sim);
+    gsl_rng_free(sim.rand);
 
     return 0;
 }

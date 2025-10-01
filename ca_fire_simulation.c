@@ -4,6 +4,7 @@
 #include <math.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
+#include <omp.h>
 
 #define CLC_URBAN_CUTOFF 11
 #define CLC_AGRICUTLTURE_CUTOFF 22
@@ -19,16 +20,16 @@
 
 typedef struct RasterPoint
 {
-    float x_cordinate;
-    float y_cordinate;
+    float x_coordinate;
+    float y_coordinate;
     int z_value;
 } RasterPoint;
 
-RasterPoint new_raster_point(float x_cordinate, float y_cordinate, int z_value)
+RasterPoint new_raster_point(float x_coordinate, float y_coordinate, int z_value)
 {
     RasterPoint p;
-    p.x_cordinate = x_cordinate;
-    p.y_cordinate = y_cordinate;
+    p.x_coordinate = x_coordinate;
+    p.y_coordinate = y_coordinate;
     p.z_value = z_value;
     return p;
 }
@@ -128,7 +129,7 @@ typedef struct FireSimulation
     int generations;
 } FireSimulation;
 
-// TODO Write usage message and improve logic and error handling
+//TODO Write usage message and improve logic and error handling
 void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_raster_file_name, char **land_cover_raster_file_name)
 {
     *elevation_raster_file_name = NULL;
@@ -164,40 +165,40 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
     }
 }
 
-// TODO Improve raster's validation
+//TODO Improve raster's validation
 void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
-    float elevation_min_x = elevation_raster[0].x_cordinate;
-    float elevation_max_x = elevation_raster[0].x_cordinate;
-    float elevation_min_y = elevation_raster[0].y_cordinate;
-    float elevation_max_y = elevation_raster[0].y_cordinate;
-    float land_cover_min_x = land_cover_raster[0].x_cordinate;
-    float land_cover_max_x = land_cover_raster[0].x_cordinate;
-    float land_cover_min_y = land_cover_raster[0].y_cordinate;
-    float land_cover_max_y = land_cover_raster[0].y_cordinate;
+    float elevation_min_x = elevation_raster[0].x_coordinate;
+    float elevation_max_x = elevation_raster[0].x_coordinate;
+    float elevation_min_y = elevation_raster[0].y_coordinate;
+    float elevation_max_y = elevation_raster[0].y_coordinate;
+    float land_cover_min_x = land_cover_raster[0].x_coordinate;
+    float land_cover_max_x = land_cover_raster[0].x_coordinate;
+    float land_cover_min_y = land_cover_raster[0].y_coordinate;
+    float land_cover_max_y = land_cover_raster[0].y_coordinate;
     for (int i = 1; i < size; i++)
     {
         RasterPoint elevation_curr = elevation_raster[i];
         RasterPoint land_cover_curr = land_cover_raster[i];
-        if (elevation_curr.x_cordinate < elevation_min_x)
-            elevation_min_x = elevation_curr.x_cordinate;
-        else if (elevation_curr.x_cordinate > elevation_max_x)
-            elevation_max_x = elevation_curr.x_cordinate;
+        if (elevation_curr.x_coordinate < elevation_min_x)
+            elevation_min_x = elevation_curr.x_coordinate;
+        else if (elevation_curr.x_coordinate > elevation_max_x)
+            elevation_max_x = elevation_curr.x_coordinate;
 
-        if (elevation_curr.y_cordinate < elevation_min_y)
-            elevation_min_y = elevation_curr.y_cordinate;
-        else if (elevation_curr.y_cordinate > elevation_max_y)
-            elevation_max_y = elevation_curr.y_cordinate;
+        if (elevation_curr.y_coordinate < elevation_min_y)
+            elevation_min_y = elevation_curr.y_coordinate;
+        else if (elevation_curr.y_coordinate > elevation_max_y)
+            elevation_max_y = elevation_curr.y_coordinate;
 
-        if (land_cover_curr.x_cordinate < land_cover_min_x)
-            land_cover_min_x = land_cover_curr.x_cordinate;
-        else if (land_cover_curr.x_cordinate > land_cover_max_x)
-            land_cover_max_x = land_cover_curr.x_cordinate;
+        if (land_cover_curr.x_coordinate < land_cover_min_x)
+            land_cover_min_x = land_cover_curr.x_coordinate;
+        else if (land_cover_curr.x_coordinate > land_cover_max_x)
+            land_cover_max_x = land_cover_curr.x_coordinate;
 
-        if (land_cover_curr.y_cordinate < land_cover_min_y)
-            land_cover_min_y = land_cover_curr.y_cordinate;
-        else if (land_cover_curr.y_cordinate > land_cover_max_y)
-            land_cover_max_y = land_cover_curr.y_cordinate;
+        if (land_cover_curr.y_coordinate < land_cover_min_y)
+            land_cover_min_y = land_cover_curr.y_coordinate;
+        else if (land_cover_curr.y_coordinate > land_cover_max_y)
+            land_cover_max_y = land_cover_curr.y_coordinate;
     }
 
     if (elevation_min_x != land_cover_min_x || elevation_max_x != land_cover_max_x ||
@@ -209,8 +210,8 @@ void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, Raste
         exit(0);
     }
 
-    sim->grid_height = (int) ((elevation_max_x - elevation_min_x) / sim->scale) + 1;
-    sim->grid_width = (int) ((elevation_max_y - elevation_min_y) / sim->scale) + 1;
+    sim->grid_height = (int) ((elevation_max_y - elevation_min_y) / sim->scale) + 1;
+    sim->grid_width = (int) ((elevation_max_x - elevation_min_x) / sim->scale) + 1;
     sim->min_x = elevation_min_x;
     sim->min_y = elevation_min_y;
 }
@@ -237,7 +238,7 @@ void free_grids(FireSimulation *sim)
     free(sim->next_grid);
 }
 
-// TODO Improve raster's validation
+//TODO Improve raster's validation
 void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
     if (sim->grid_height * sim->grid_width != size)
@@ -253,12 +254,12 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
     {
         RasterPoint elevation_curr = elevation_raster[i];
         RasterPoint land_cover_curr = land_cover_raster[i];
-        int elevation_j = (int) (elevation_curr.x_cordinate - sim->min_x) / sim->scale;
-        int elevation_k = sim->grid_width - 1 - (int) (elevation_curr.y_cordinate - sim->min_y) / sim->scale;
-        int land_cover_j = (int) (land_cover_curr.x_cordinate - sim->min_x) / sim->scale;
-        int land_cover_k = sim->grid_width - 1 - (int) (land_cover_curr.y_cordinate - sim->min_y) / sim->scale;
+        int elevation_j = sim->grid_height - 1 - (int) (elevation_curr.y_coordinate - sim->min_y) / sim->scale;
+        int elevation_k = (int) (elevation_curr.x_coordinate - sim->min_x) / sim->scale;
+        int land_cover_j = sim->grid_height - 1 - (int) (land_cover_curr.y_coordinate - sim->min_y) / sim->scale;
+        int land_cover_k = (int) (land_cover_curr.x_coordinate - sim->min_x) / sim->scale;
 
-        // Since indices might not correspond we change values manually insted of using a new_cell func
+        //Since indices might not correspond we change values manually insted of using a new_cell func
         sim->curr_grid[elevation_j][elevation_k].elevation = elevation_curr.z_value;
 
         if (land_cover_curr.z_value < CLC_MIN_VALUE || land_cover_curr.z_value > CLC_MAX_VALUE)
@@ -281,7 +282,7 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
     }
 }
 
-// Aux struct
+//Aux struct
 typedef struct Point
 {
     int i;
@@ -290,9 +291,9 @@ typedef struct Point
 
 void set_random_ignition_point(FireSimulation *sim)
 {
-    // TODO VLA BAD
+    int alloc_size = 16;
     int size = 0;
-    Point valid_points[sim->grid_height * sim->grid_width];
+    Point *valid_points = malloc(alloc_size * sizeof(Point));
     for (int i = 0; i < sim->grid_height; i++)
         for (int j = 0; j < sim->grid_width; j++)
             if (sim->curr_grid[i][j].land_state == UNIGNITED)
@@ -300,11 +301,18 @@ void set_random_ignition_point(FireSimulation *sim)
                 valid_points[size].i = i;
                 valid_points[size].j = j;
                 size++;
+                if (size >= alloc_size)
+                {
+                    alloc_size *= 2;
+                    valid_points = realloc(valid_points, alloc_size * sizeof(Point));
+                }
             }
 
+    valid_points = realloc(valid_points, size * sizeof(Point));        
     int random = gsl_rng_uniform_int(sim->rand, size);
     Point selected = valid_points[random];
     sim->curr_grid[selected.i][selected.j].land_state = BURNING;
+    free(valid_points);
 }
 
 void copy_to_next_grid(FireSimulation *sim)
@@ -331,7 +339,7 @@ void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
         free(land_cover_raster);
         exit(0);
     }
-    int size = elevation_raster_size; // elevation_raster_size == land_cover_raster_size
+    int size = elevation_raster_size; //elevation_raster_size == land_cover_raster_size
 
     sim->rand = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(sim->rand, sim->base_seed);
@@ -368,14 +376,14 @@ float compute_p_burn(FireSimulation *sim, int i, int j, int k, int l)
     return P_H * (1.0 + p_veg) * p_slope * p_wind;
 }
 
-void spread_fire(FireSimulation *sim, int i, int j)
+void spread_fire(FireSimulation *sim, int i, int j, gsl_rng *rand)
 {
     for (int k = i - 1; k <= i + 1; k++)
         for (int l = j - 1; l <= j + 1; l++)
-            if (in_bounds(sim, k, l) && sim->curr_grid[k][l].land_state == UNIGNITED && sim->next_grid[k][l].land_state == UNIGNITED)
+            if (in_bounds(sim, k, l) && sim->curr_grid[k][l].land_state == UNIGNITED)
             {
                 float p_burn = compute_p_burn(sim, i, j, k, l);
-                float random = gsl_rng_uniform(sim->rand);
+                float random = gsl_rng_uniform(rand);
                 if (random < p_burn) 
                     sim->next_grid[k][l].land_state = BURNING;
             }
@@ -383,6 +391,7 @@ void spread_fire(FireSimulation *sim, int i, int j)
 
 void update_grid(FireSimulation *sim)
 {
+    #pragma omp parallel for
     for (int i = 0; i < sim->grid_height; i++)
         for (int j = 0; j < sim->grid_width; j++)
             sim->curr_grid[i][j] = sim->next_grid[i][j];
@@ -390,13 +399,25 @@ void update_grid(FireSimulation *sim)
 
 void simulate(FireSimulation *sim)
 {
-    for (int i = 0; i < sim->grid_height; i++)
-        for (int j = 0; j < sim->grid_width; j++)
-            if (sim->curr_grid[i][j].land_state == BURNING)
-            {
-                spread_fire(sim, i, j);
-                sim->next_grid[i][j].land_state = BURNT;
-            }
+    unsigned long disturbance = gsl_rng_uniform_int(sim->rand, ~0u);
+    #pragma omp parallel
+    {
+        gsl_rng *local_rand = gsl_rng_alloc(gsl_rng_mt19937);
+
+        #pragma omp for nowait
+        for (int i = 0; i < sim->grid_height; i++)
+        {
+            gsl_rng_set(local_rand, disturbance + i);
+            for (int j = 0; j < sim->grid_width; j++)
+                if (sim->curr_grid[i][j].land_state == BURNING)
+                {
+                    spread_fire(sim, i, j, local_rand);
+                    sim->next_grid[i][j].land_state = BURNT;
+                }                
+        }
+
+        gsl_rng_free(local_rand);
+    }
 
     update_grid(sim);
 }
@@ -438,7 +459,7 @@ int main(int argc, char **argv)
 {
     FireSimulation sim;
 
-    // TODO Implement file output logic
+    //TODO Implement file output logic
 
     init_fire_simulation(&sim, argc, argv);
 

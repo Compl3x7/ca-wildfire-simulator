@@ -1,4 +1,9 @@
-*.tif
+# Data dir
+data/
+# Binaries dir/files
+bin/
 *.out
-*.xml
+# Python virtual env
 *.venv/
+
+*.xml

@@ -23,7 +23,7 @@ def read_grid(filename):
     line = f.readline().strip("\n")
     split_line = line.split(";", 2)
     
-    # For now no altitude visualization
+    #For now no altitude visualization
     grid = np.empty(shape=(int(split_line[0]), int(split_line[1]), 2), dtype=int)
     for i in range(grid.shape[0]):
         line = f.readline().strip("\n")
@@ -37,30 +37,30 @@ def read_grid(filename):
 
 def define_color(values):
     if (values[1] == LandState.BURNING.value):
-        return (255, 0, 0) # RED
+        return (255, 0, 0) #RED
     if (values[1] == LandState.BURNT.value):
-        return (0, 0, 0) # BLACK
+        return (0, 0, 0) #BLACK
     
     if (values[0] == LandType.FOREST.value):
-        return (0, 128, 0) # DARK GREEN
+        return (0, 128, 0) #DARK GREEN
     if (values[0] == LandType.AGRICULTURE.value):
-        return (0, 255, 0) # GREEN
+        return (0, 255, 0) #GREEN
     if (values[0] == LandType.URBAN.value):
-        return (64, 64, 64) # DARK GRAY
+        return (64, 64, 64) #DARK GRAY
     if (values[0] == LandType.WATER.value):
-        return (0, 128, 255) # DARK CYAN
+        return (0, 128, 255) #DARK CYAN
 
-# TODO Argument parsing
+#TODO Argument parsing
     
 grid = read_grid(sys.argv[1])
 scaling_factor = int(sys.argv[3])
 
-img = Image.new(mode="RGB", size=(grid.shape[0], grid.shape[1]))
+img = Image.new(mode="RGB", size=(grid.shape[1], grid.shape[0]))
 pixels = img.load()
 
-for i in range(grid.shape[0]):
-    for j in range(grid.shape[1]):
-        pixels[i, j] = define_color(grid[i][j])
+for j in range(grid.shape[1]):
+    for i in range(grid.shape[0]):
+        pixels[j, i] = define_color(grid[i][j])
 
 img = img.resize(size=(scaling_factor * grid.shape[1], scaling_factor * grid.shape[0]), resample=Image.Resampling.NEAREST)
 img.save(sys.argv[2])

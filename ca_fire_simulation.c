@@ -6,114 +6,12 @@
 #include <gsl/gsl_rng.h>
 #include <omp.h>
 
-#define CLC_URBAN_CUTOFF 11
-#define CLC_AGRICUTLTURE_CUTOFF 22
-#define CLC_FOREST_CUTOFF 29
-#define CLC_WATER_CUTOFF 44
-#define CLC_BURNT 33
-#define CLC_MIN_VALUE 1
-#define CLC_MAX_VALUE 44
+#include "raster.h"
+#include "cell.h"
 
 #define P_H 0.58
 #define SQRT_2 1.41421356237
 #define ALPHA 0.078
-
-typedef struct RasterPoint
-{
-    float x_coordinate;
-    float y_coordinate;
-    int z_value;
-} RasterPoint;
-
-RasterPoint new_raster_point(float x_coordinate, float y_coordinate, int z_value)
-{
-    RasterPoint p;
-    p.x_coordinate = x_coordinate;
-    p.y_coordinate = y_coordinate;
-    p.z_value = z_value;
-    return p;
-}
-
-RasterPoint* read_raster_from_file(const char *filename, int *raster_size)
-{
-    FILE *raster_file = fopen(filename, "r");
-    if (raster_file == NULL)
-    {
-        printf("%s: File not found/Error while opening file\n", filename);
-        exit(0);
-    }
-
-    RasterPoint *raster_buffer = malloc(sizeof(RasterPoint));
-    int alloc_size = 1;
-    int size = 0;
-    float x_coordinate;
-    float y_coordinate;
-    int z_value;
-    int read;
-    while((read = fscanf(raster_file, "%f %f %d", &x_coordinate, &y_coordinate, &z_value)) != EOF)
-    {
-        if (read != 3)
-        {
-            printf("%s: File format doesn't correspond to a xyz raster file\n", filename);
-            free(raster_buffer);
-            fclose(raster_file);
-            exit(0);
-        }
-
-        raster_buffer[size++] = new_raster_point(x_coordinate, y_coordinate, z_value);
-        if (size >= alloc_size)
-        {
-            alloc_size *= 2;
-            raster_buffer = realloc(raster_buffer, alloc_size * sizeof(RasterPoint));
-        }
-    }
-    raster_buffer = realloc(raster_buffer, size * sizeof(RasterPoint));
-    *raster_size = size;
-    fclose(raster_file);
-    return raster_buffer;
-}
-
-typedef enum LandType
-{
-    FOREST,
-    AGRICULTURE,
-    URBAN,
-    WATER,
-    BURNT_LAND
-} LandType;
-
-const float P_VEG_VALUES[4] = {0.4, -0.3, -0.6, -0.7};
-
-LandType clc_to_land_type(int clc_value)
-{
-    if (clc_value == CLC_BURNT)
-        return BURNT_LAND;
-
-    if (clc_value <= CLC_URBAN_CUTOFF)
-        return URBAN;
-    if (clc_value <= CLC_AGRICUTLTURE_CUTOFF)
-        return AGRICULTURE;
-    if (clc_value <= CLC_FOREST_CUTOFF)
-        return FOREST;
-//  if (clc_value <= CLC_WATER_CUTOFF)
-
-    return WATER;
-}
-
-typedef enum LandState
-{
-    UNIGNITABLE,
-    UNIGNITED,
-    BURNING,
-    BURNT
-} LandState;
-
-typedef struct Cell
-{
-    int elevation;
-    LandType land_type;
-    LandState land_state;
-} Cell;
 
 typedef struct FireSimulation
 {
@@ -262,16 +160,16 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
         //Since indices might not correspond we change values manually insted of using a new_cell func
         sim->curr_grid[elevation_j][elevation_k].elevation = elevation_curr.z_value;
 
-        if (land_cover_curr.z_value < CLC_MIN_VALUE || land_cover_curr.z_value > CLC_MAX_VALUE)
+        LandType type = clc_to_land_type(land_cover_curr.z_value);
+        if (type == -1)
         {
-            printf("Invalid land cover value on land cover raster file\n");
+            fprintf(stderr ,"Invalid land cover value on land cover raster file\n");
             free(elevation_raster);
             free(land_cover_raster);
             free_grids(sim);
-            exit(0);
+            exit(1);
         }
 
-        LandType type = clc_to_land_type(land_cover_curr.z_value);
         sim->curr_grid[land_cover_j][land_cover_k].land_type = type;
         if (type == WATER)
             sim->curr_grid[land_cover_j][land_cover_k].land_state = UNIGNITABLE;
@@ -330,8 +228,9 @@ void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
 
     int elevation_raster_size;
     int land_cover_raster_size;
-    RasterPoint *elevation_raster = read_raster_from_file(elevation_raster_file_name, &elevation_raster_size);
-    RasterPoint *land_cover_raster = read_raster_from_file(land_cover_raster_file_name, &land_cover_raster_size);
+    RasterPoint *elevation_raster = raster_read_from_file(elevation_raster_file_name, &elevation_raster_size);
+    RasterPoint *land_cover_raster = raster_read_from_file(land_cover_raster_file_name, &land_cover_raster_size);
+    //NULL CHECK
     if (elevation_raster_size != land_cover_raster_size)
     {
         printf("Raster file sizes do not correspond\n");
@@ -432,7 +331,7 @@ void print_grid(FireSimulation *sim)
     }
 }
 
-void write_grid_to_file(FireSimulation *sim, char *filename)
+void write_grid_to_file(FireSimulation *sim, const char *filename)
 {
     FILE *f_out = fopen(filename, "w");
     if (f_out == NULL)

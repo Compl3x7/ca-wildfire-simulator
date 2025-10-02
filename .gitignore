@@ -5,6 +5,6 @@ results/
 bin/
 *.out
 # Python virtual env
-*.venv/
+.venv/
 
 *.xml

@@ -9,9 +9,12 @@
 #include "raster.h"
 #include "cell.h"
 
-#define P_H 0.58
 #define SQRT_2 1.41421356237
+#define PI 3.14159265359 
+#define P_H 0.58
 #define ALPHA 0.078
+#define C_1 0.045
+#define C_2 0.131
 
 typedef struct FireSimulation
 {
@@ -266,11 +269,36 @@ float compute_p_slope(FireSimulation *sim, int i, int j, int k, int l)
     return exp(ALPHA * theta);
 }
 
+float compute_wind_angle(FireSimulation *sim, int i, int j, int k, int l)
+{
+    float wind_angle = 0;
+
+    float x_len = (l - j) * sim->scale;
+    float y_len = (k - i) * sim->scale;
+    float theta = atan((float) (y_len / fabs(x_len)));
+    if (x_len < 0)
+        theta = theta > 0 ? PI - theta : -PI - theta;
+    
+    return wind_angle - theta;
+}
+
+
+float compute_p_wind(FireSimulation *sim, int i, int j, int k, int l)
+{
+    // Very hardcoded where wind speed = 9.8 and wind dir = 0pi
+    float wind_velocity = 9.8;
+
+    float theta = compute_wind_angle(sim, i, j, k, l);
+    float f_t = exp(wind_velocity * C_2 * (cos(theta) - 1));
+    return exp(C_1 * wind_velocity) * f_t;
+}
+
+
 float compute_p_burn(FireSimulation *sim, int i, int j, int k, int l)
 {
-    float p_veg = P_VEG_VALUES[sim->curr_grid[k][l].land_type];
+    float p_veg = get_p_veg_value(sim->curr_grid[k][l].land_type);
     float p_slope = compute_p_slope(sim, i, j, k, l);
-    float p_wind = 1.0; //No effect by now
+    float p_wind = compute_p_wind(sim, i, j, k, l);
 
     return P_H * (1.0 + p_veg) * p_slope * p_wind;
 }

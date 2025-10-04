@@ -28,7 +28,11 @@ RasterPoint* raster_read_from_file(const char *filename, int *raster_size)
     while((read = fscanf(raster_file, "%f %f %d", &x_coordinate, &y_coordinate, &z_value)) != EOF)
     {
         if (read != 3)
+        {
+            free(raster_buffer);
+            fclose(raster_file);
             return NULL;
+        }
 
         raster_buffer[size++] = raster_new_point(x_coordinate, y_coordinate, z_value);
         if (size >= alloc_size)

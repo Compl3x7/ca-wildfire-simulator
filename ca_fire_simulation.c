@@ -12,7 +12,8 @@
 #define SQRT_2 1.41421356237
 #define PI 3.14159265359 
 #define P_H 0.58
-#define ALPHA 0.078
+//#define ALPHA 0.078
+#define ALPHA 0.727
 #define C_1 0.045
 #define C_2 0.131
 
@@ -256,22 +257,45 @@ void init_fire_simulation(FireSimulation *sim, int argc, char **argv)
     free(land_cover_raster);
 }
 
-int in_bounds(FireSimulation *sim, int i, int j)
+float compute_p_distance(int i, int j, int k, int l)
 {
-    return i >= 0 && i < sim->grid_height && 
-            j >= 0 && j < sim->grid_width;
+    return i != k && j != l ? 1 / SQRT_2 : 1;
+}
+
+/* I DID NOT DERIVE THIS MYSELF!!! 
+Good video explanation of this algorithm: https://www.youtube.com/watch?v=p8u_k2LIZyo */
+float Q_rsqrt( float number )
+{
+	long i;
+	float x2, y;
+	const float threehalfs = 1.5F;
+
+	x2 = number * 0.5F;
+	y  = number;
+	i  = * ( long * ) &y;                       // evil floating point bit level hacking
+	i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
+	y  = * ( float * ) &i;
+	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
+//	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+	return y;
 }
 
 float compute_p_slope(FireSimulation *sim, int i, int j, int k, int l)
 {
-    float distance = (i != k && j != l) ? SQRT_2 * sim->scale : sim->scale;
-    float theta = atan((float) (sim->curr_grid[k][l].elevation - sim->curr_grid[i][j].elevation) / distance);
-    return exp(ALPHA * theta);
+    float distance = compute_p_distance(i, j, k, l);
+    float ax = ALPHA * ((float) (sim->curr_grid[k][l].elevation - sim->curr_grid[i][j].elevation) / distance);
+    float slope_factor = ax * Q_rsqrt(1 + ax * ax);
+    if (ax < 0)
+        slope_factor *= 0.5;
+
+    return slope_factor + 1; 
+    //return exp(ALPHA * theta); //Original where ALPHA = 0.078
 }
 
 float compute_wind_angle(FireSimulation *sim, int i, int j, int k, int l)
 {
-    float wind_angle = 0;
+    float wind_angle = PI;
 
     float x_len = (l - j) * sim->scale;
     float y_len = (k - i) * sim->scale;
@@ -285,8 +309,8 @@ float compute_wind_angle(FireSimulation *sim, int i, int j, int k, int l)
 
 float compute_p_wind(FireSimulation *sim, int i, int j, int k, int l)
 {
-    // Very hardcoded where wind speed = 9.8 and wind dir = 0pi
-    float wind_velocity = 9.8;
+    // Very hardcoded where wind speed = 9.0 and wind dir = pi
+    float wind_velocity = 9.0;
 
     float theta = compute_wind_angle(sim, i, j, k, l);
     float f_t = exp(wind_velocity * C_2 * (cos(theta) - 1));
@@ -296,11 +320,19 @@ float compute_p_wind(FireSimulation *sim, int i, int j, int k, int l)
 
 float compute_p_burn(FireSimulation *sim, int i, int j, int k, int l)
 {
+    float p_distance = i != k && j != l ? 1 / SQRT_2 : 1;
     float p_veg = get_p_veg_value(sim->curr_grid[k][l].land_type);
     float p_slope = compute_p_slope(sim, i, j, k, l);
     float p_wind = compute_p_wind(sim, i, j, k, l);
 
-    return P_H * (1.0 + p_veg) * p_slope * p_wind;
+    return p_distance * p_veg * p_slope * p_wind;
+    //return P_H * (1.0 + p_veg) * p_slope * p_wind; //Orignal with different P_VEG values
+}
+
+int in_bounds(FireSimulation *sim, int i, int j)
+{
+    return i >= 0 && i < sim->grid_height && 
+            j >= 0 && j < sim->grid_width;
 }
 
 void spread_fire(FireSimulation *sim, int i, int j, gsl_rng *rand)

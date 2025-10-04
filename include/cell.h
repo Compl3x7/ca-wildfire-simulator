@@ -10,7 +10,8 @@ typedef enum LandType
     AGRICULTURE,
     URBAN,
     WATER,
-    BURNT_LAND
+    BURNT_LAND,
+    INVALID_TYPE
 } LandType;
 
 LandType clc_to_land_type(int clc_value);
@@ -24,6 +25,8 @@ typedef enum LandState
     BURNING,
     BURNT
 } LandState;
+
+LandState determine_land_state(LandType type);
 
 typedef struct Cell
 {

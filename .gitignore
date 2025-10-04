@@ -2,7 +2,7 @@
 data/
 results/
 # Binaries dir/files
-bin/
+wildfire
 *.out
 # Python virtual env
 .venv/

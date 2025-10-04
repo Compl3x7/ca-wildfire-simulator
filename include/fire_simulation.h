@@ -16,13 +16,12 @@ typedef struct FireSimulation
     Cell **curr_grid;
     Cell **next_grid;
     int generations;
+    int n_threads; 
 } FireSimulation;
 
 void fire_simulation_init(FireSimulation *sim, int argc, char **argv);
 
-void simulate(FireSimulation *sim);
-
-void print_grid(FireSimulation *sim);
+void fire_simulate(FireSimulation *sim);
 
 void fire_simulation_free(FireSimulation *sim);
 

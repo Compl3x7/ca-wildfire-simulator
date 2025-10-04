@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "cell.h"
 
 #define CLC_URBAN_CUTOFF 11
@@ -11,7 +13,7 @@
 LandType clc_to_land_type(int clc_value)
 {
     if (clc_value < CLC_MIN_VALUE || clc_value > CLC_MAX_VALUE)
-        return -1;
+        return INVALID_TYPE;
 
     if (clc_value == CLC_BURNT)
         return BURNT_LAND;
@@ -29,4 +31,14 @@ LandType clc_to_land_type(int clc_value)
 double get_p_veg_value(LandType type)
 {
     return P_VEG_VALUES[type];
+}
+
+LandState determine_land_state(LandType type)
+{
+    if (type == WATER)
+        return UNIGNITABLE;
+    else if (type == BURNT_LAND)
+        return BURNT;
+    else
+        return UNIGNITED;
 }

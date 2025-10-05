@@ -17,6 +17,7 @@ typedef struct FireSimulation
     Cell **next_grid;
     int generations;
     int n_threads;
+    gsl_rng **thread_rand;
     char *output_file;
 } FireSimulation;
 

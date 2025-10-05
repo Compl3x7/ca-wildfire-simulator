@@ -25,7 +25,7 @@
 #define DEFAULT_THREADS 2
 
 #define SQRT_2 1.41421356237
-#define PI 3.14159265359 
+#define PI 3.14159265359
 #define P_H 0.58
 //#define ALPHA 0.078
 #define ALPHA 0.727
@@ -92,6 +92,34 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
         print_usage();
 }
 
+int read_data(const char *elevation_raster_file_name, const char *land_cover_raster_file_name, RasterPoint **elevation_raster, RasterPoint **land_cover_raster)
+{
+    int elevation_raster_size;
+    int land_cover_raster_size;
+    *elevation_raster = raster_read_from_file(elevation_raster_file_name, &elevation_raster_size);
+    if (elevation_raster == NULL)
+    {
+        fprintf(stderr, "Error while reading from %s\n", elevation_raster_file_name);
+        exit(1);
+    }
+    *land_cover_raster = raster_read_from_file(land_cover_raster_file_name, &land_cover_raster_size);
+    if (land_cover_raster == NULL)
+    {
+        fprintf(stderr, "Error while reading from %s\n", land_cover_raster_file_name);
+        free(elevation_raster);
+        exit(1);
+    }
+
+    if (elevation_raster_size != land_cover_raster_size)
+    {
+        fprintf(stderr, "Raster file sizes do not correspond\n");
+        free(elevation_raster);
+        free(land_cover_raster);
+        exit(1);
+    }
+    return elevation_raster_size; //elevation_raster_size == land_cover_raster_size
+}
+
 void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
     RasterBound elevation_bound = raster_get_bound(elevation_raster, size);
@@ -118,6 +146,23 @@ void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, Raste
     }
 }
 
+void alloc_rngs(FireSimulation *sim)
+{
+    sim->rand = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(sim->rand, sim->base_seed);
+    sim->thread_rand = malloc(sim->n_threads * sizeof(gsl_rng*));
+    for (int i = 0; i < sim->n_threads; i++)
+        sim->thread_rand[i] = gsl_rng_alloc(gsl_rng_mt19937);
+}
+
+void free_rngs(FireSimulation *sim)
+{
+    gsl_rng_free(sim->rand);
+    for (int i = 0; i < sim->n_threads; i++)
+        gsl_rng_free(sim->thread_rand[i]);
+    free(sim->thread_rand);
+}
+
 void alloc_grids(FireSimulation *sim)
 {
     sim->curr_grid = malloc(sim->grid_height * sizeof(Cell*));
@@ -138,6 +183,12 @@ void free_grids(FireSimulation *sim)
     }
     free(sim->curr_grid);
     free(sim->next_grid);
+}
+
+void fire_simulation_free(FireSimulation *sim)
+{
+    free_rngs(sim);
+    free_grids(sim);
 }
 
 //TODO Needs check ?
@@ -165,7 +216,7 @@ void populate_grids_land_cover(FireSimulation *sim, RasterPoint *elevation_raste
             fprintf(stderr ,"Invalid land cover value on land cover raster file\n");
             free(elevation_raster);
             free(land_cover_raster);
-            free_grids(sim);
+            fire_simulation_free(sim);
             exit(1);
         }
 
@@ -183,17 +234,17 @@ void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPo
 }
 
 //Aux struct
-typedef struct Point
+typedef struct Index2D
 {
     int i;
     int j;
-} Point;
+} Index2D;
 
-Point* get_ignitable_points(FireSimulation *sim, int *points_size)
+Index2D* get_ignitable_points(FireSimulation *sim, int *points_size)
 {
     int alloc_size = sim->grid_height * sim->grid_width;
     int size = 0;
-    Point *valid_points = malloc(alloc_size * sizeof(Point));
+    Index2D *valid_points = malloc(alloc_size * sizeof(Index2D));
     for (int i = 0; i < sim->grid_height; i++)
         for (int j = 0; j < sim->grid_width; j++)
             if (sim->curr_grid[i][j].land_state == UNIGNITED)
@@ -203,14 +254,14 @@ Point* get_ignitable_points(FireSimulation *sim, int *points_size)
                 size++;
             }
 
-    valid_points = realloc(valid_points, size * sizeof(Point));
+    valid_points = realloc(valid_points, size * sizeof(Index2D));
     *points_size = size;
     return valid_points;
 }
 
-void swap(Point *points, int i, int j)
+void swap(Index2D *points, int i, int j)
 {
-    Point temp = points[i];
+    Index2D temp = points[i];
     points[i] = points[j];
     points[j] = temp;
 }
@@ -218,12 +269,12 @@ void swap(Point *points, int i, int j)
 void set_random_ignition_points(FireSimulation *sim, int n_points)
 {
     int size;
-    Point *valid_points = get_ignitable_points(sim, &size);
+    Index2D *valid_points = get_ignitable_points(sim, &size);
 
     for (int i = 0; i < n_points; i++)
     {
         int random = gsl_rng_uniform_int(sim->rand, size);
-        Point selected = valid_points[random];
+        Index2D selected = valid_points[random];
         sim->curr_grid[selected.i][selected.j].land_state = BURNING;
         sim->next_grid[selected.i][selected.j].land_state = BURNING;
         swap(valid_points, random, --size);
@@ -237,24 +288,12 @@ void fire_simulation_init(FireSimulation *sim, int argc, char **argv)
     char *land_cover_raster_file_name;
     parse_args(sim, argc, argv, &elevation_raster_file_name, &land_cover_raster_file_name);
 
-    int elevation_raster_size;
-    int land_cover_raster_size;
-    RasterPoint *elevation_raster = raster_read_from_file(elevation_raster_file_name, &elevation_raster_size);
-    RasterPoint *land_cover_raster = raster_read_from_file(land_cover_raster_file_name, &land_cover_raster_size);
-    //NULL CHECK
-    if (elevation_raster_size != land_cover_raster_size)
-    {
-        printf("Raster file sizes do not correspond\n");
-        free(elevation_raster);
-        free(land_cover_raster);
-        exit(0);
-    }
-    int size = elevation_raster_size; //elevation_raster_size == land_cover_raster_size
-
-    sim->rand = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(sim->rand, sim->base_seed);
+    RasterPoint *elevation_raster;
+    RasterPoint *land_cover_raster;
+    int size = read_data(elevation_raster_file_name, land_cover_raster_file_name, &elevation_raster, &land_cover_raster);
 
     compute_grid_size(sim, elevation_raster, land_cover_raster, size);
+    alloc_rngs(sim);
     alloc_grids(sim);
     populate_grids(sim, elevation_raster, land_cover_raster, size);
     set_random_ignition_points(sim, 1);
@@ -263,16 +302,16 @@ void fire_simulation_init(FireSimulation *sim, int argc, char **argv)
     free(land_cover_raster);
 }
 
-float compute_p_distance(int i, int j, int k, int l)
+double compute_p_distance(Index2D from, Index2D to)
 {
-    return i != k && j != l ? 1 / SQRT_2 : 1;
+    return from.i != to.i && from.j != to.j ? 1 / SQRT_2 : 1;
 }
 
-float compute_p_slope(FireSimulation *sim, int i, int j, int k, int l)
+double compute_p_slope(FireSimulation *sim, Index2D from, Index2D to)
 {
-    float distance = (i != k && j != l) ? SQRT_2 * sim->scale : sim->scale;
-    float ax = ALPHA * ((float) (sim->curr_grid[k][l].elevation - sim->curr_grid[i][j].elevation) / distance);
-    float slope_factor = ax / sqrt(1 + ax * ax);
+    double distance = from.i != to.i && from.j != to.j ? SQRT_2 * sim->scale : sim->scale;
+    double ax = ALPHA * ((double) (sim->curr_grid[to.i][to.j].elevation - sim->curr_grid[from.i][from.j].elevation) / distance);
+    double slope_factor = ax / sqrt(1 + ax * ax);
     if (ax < 0)
         slope_factor *= 0.5;
 
@@ -280,57 +319,69 @@ float compute_p_slope(FireSimulation *sim, int i, int j, int k, int l)
     //return exp(ALPHA * theta); //Original where ALPHA = 0.078
 }
 
-// Very hardcoded where wind speed = 5.0 and wind dir = pi
-// This is also wrong lmao, get floated lmao
-float compute_wind_angle(FireSimulation *sim, int i, int j, int k, int l)
+double degree_to_radian(double_t degree_angle)
 {
-    float wind_angle = PI;
-
-    float x_len = (l - j) * sim->scale;
-    float y_len = (k - i) * sim->scale;
-    float theta = atan((float) (y_len / fabs(x_len)));
-    if (x_len < 0)
-        theta = theta > 0 ? PI - theta : -PI - theta;
-    
-    return wind_angle - theta;
+    return degree_angle * PI / 180;
 }
 
-float compute_p_wind(FireSimulation *sim, int i, int j, int k, int l)
+// Very hardcoded where wind speed = 5.0 and wind dir = 180º
+double compute_wind_angle(FireSimulation *sim, Index2D from, Index2D to)
 {
-    float wind_velocity = 5.0;
+    double wind_angle = 180;
+    double wind_angle_rad = degree_to_radian(wind_angle);
 
-    float theta = compute_wind_angle(sim, i, j, k, l);
-    float f_t = exp(wind_velocity * C_2 * (cos(theta) - 1));
+    int discrete_x_len = (to.j - from.j);
+    int discrete_y_len = (to.i - from.i);
+    if (discrete_x_len == 0)
+        return discrete_y_len > 0 ? PI * 0.5 : 1.5 * PI;
+
+    double x_len = (double) discrete_x_len * sim->scale;
+    double y_len = (double) discrete_y_len * sim->scale;
+    double theta = atan2(y_len, x_len);
+    if (theta < 0)
+        theta += 2 * PI;
+
+    return wind_angle_rad - theta;
+}
+
+float compute_p_wind(FireSimulation *sim, Index2D from, Index2D to)
+{
+    double wind_velocity = 5.0;
+
+    double theta = compute_wind_angle(sim, from, to);
+    double f_t = exp(wind_velocity * C_2 * (cos(theta) - 1));
     return exp(C_1 * wind_velocity) * f_t;
 }
 
-float compute_p_burn(FireSimulation *sim, int i, int j, int k, int l)
+float compute_p_burn(FireSimulation *sim, Index2D from, Index2D to)
 {
-    float p_veg = get_p_veg_value(sim->curr_grid[k][l].land_type);
-    float p_distance = compute_p_distance(i, j, k, l);
-    float p_slope = compute_p_slope(sim, i, j, k, l);
-    float p_wind = compute_p_wind(sim, i, j, k, l);
+    double p_veg = get_p_veg_value(sim->curr_grid[to.i][to.j].land_type);
+    double p_distance = compute_p_distance(from, to);
+    double p_slope = compute_p_slope(sim, from, to);
+    double p_wind = compute_p_wind(sim, from, to);
 
     return p_veg * p_distance * p_slope * p_wind;
     //return P_H * (1.0 + p_veg) * p_slope * p_wind; //Orignal with different P_VEG values
 }
 
-int in_bounds(FireSimulation *sim, int i, int j)
+int in_bounds(FireSimulation *sim, Index2D index)
 {
-    return i >= 0 && i < sim->grid_height && 
-            j >= 0 && j < sim->grid_width;
+    return index.i >= 0 && index.i < sim->grid_height && 
+            index.j >= 0 && index.j < sim->grid_width;
 }
 
-void spread_fire(FireSimulation *sim, int i, int j, gsl_rng *rand)
+void spread_fire(FireSimulation *sim, Index2D from, gsl_rng *rand)
 {
-    for (int k = i - 1; k <= i + 1; k++)
-        for (int l = j - 1; l <= j + 1; l++)
-            if (in_bounds(sim, k, l) && sim->curr_grid[k][l].land_state == UNIGNITED)
+    Index2D to;
+    for (to.i = from.i - 1; to.i <= from.i + 1; to.i++)
+        for (to.j = from.j - 1; to.j <= from.j + 1; to.j++)
+            if (in_bounds(sim, to) && sim->curr_grid[to.i][to.j].land_state == UNIGNITED)
             {
-                float p_burn = compute_p_burn(sim, i, j, k, l);
-                float random = gsl_rng_uniform(rand);
+                double p_burn = compute_p_burn(sim, from, to);
+                double random = gsl_rng_uniform(rand);
                 if (random < p_burn) 
-                    sim->next_grid[k][l].land_state = BURNING;
+                    #pragma omp atomic write
+                    sim->next_grid[to.i][to.j].land_state = BURNING;
             }
 }
 
@@ -347,7 +398,7 @@ void simulate_step(FireSimulation *sim)
     unsigned long disturbance = gsl_rng_uniform_int(sim->rand, ~0u);
     #pragma omp parallel num_threads(sim->n_threads)
     {
-        gsl_rng *local_rand = gsl_rng_alloc(gsl_rng_mt19937);
+        gsl_rng *local_rand = sim->thread_rand[omp_get_thread_num()];
 
         #pragma omp for nowait
         for (int i = 0; i < sim->grid_height; i++)
@@ -356,12 +407,11 @@ void simulate_step(FireSimulation *sim)
             for (int j = 0; j < sim->grid_width; j++)
                 if (sim->curr_grid[i][j].land_state == BURNING)
                 {
-                    spread_fire(sim, i, j, local_rand);
+                    Index2D from = {i, j}; //Compile error otherwise, omp??
+                    spread_fire(sim, from, local_rand);
                     sim->next_grid[i][j].land_state = BURNT;
                 }                
         }
-
-        gsl_rng_free(local_rand);
     }
 
     update_grid(sim);
@@ -372,9 +422,9 @@ void write_grid_to_file(FireSimulation *sim, const char *filename)
     FILE *f_out = fopen(filename, "w");
     if (f_out == NULL)
     {
-        printf("%s: Error while creating file\n", filename);
-        free_grids(sim);
-        exit(0);
+        fprintf(stderr, "%s: Error while creating file\n", filename);
+        fire_simulation_free(sim);
+        exit(1);
     }
 
     fprintf(f_out, "%d;%d\n", sim->grid_height, sim->grid_width);
@@ -397,10 +447,4 @@ void fire_simulate(FireSimulation *sim)
 
     if (sim->output_file != NULL)
         write_grid_to_file(sim, sim->output_file);
-}
-
-void fire_simulation_free(FireSimulation *sim)
-{
-    gsl_rng_free(sim->rand);
-    free_grids(sim);
 }

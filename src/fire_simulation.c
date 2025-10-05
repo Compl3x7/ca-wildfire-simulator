@@ -10,6 +10,8 @@
 #include "cell.h"
 #include "fire_simulation.h"
 
+#define DATASET_COUNT 2
+
 #define HELP_FLAG "--help"
 #define DEM_FLAG "--dem"
 #define LAND_FLAG "--clc"
@@ -17,6 +19,10 @@
 #define GENS_FLAG "--gens"
 #define SEED_FLAG "--seed"
 #define N_THREADS_FLAG "--n-threads"
+#define OUTPUT_FLAG "--out"
+
+#define DEFAULT_GENS 100
+#define DEFAULT_THREADS 2
 
 #define SQRT_2 1.41421356237
 #define PI 3.14159265359 
@@ -28,17 +34,18 @@
 
 void print_usage()
 {
-    fprintf(stderr, "Usage: ./wildfire --dem <file> --clc <file> --scale <meters> [OPTIONS]\n\n");
+    fprintf(stderr, "Usage: ./wildfire %s <file> %s <file> %s <meters> [OPTIONS]\n\n", DEM_FLAG, LAND_FLAG, SCALE_FLAG);
 
     fprintf(stderr, "REQUIRED ARGUMENTS:\n");
-    fprintf(stderr, "\t--dem <file.xyz>      Digital Elevation Model in XYZ format\n");
-    fprintf(stderr, "\t--clc <file.xyz>      Land cover data in XYZ format\n");
-    fprintf(stderr, "\t--scale <meters>      Cell size in meters (e.g., 25.0)\n\n");
+    fprintf(stderr, "\t%s <file>         Digital Elevation Model in XYZ format\n", DEM_FLAG);
+    fprintf(stderr, "\t%s <file>         Land cover data in XYZ format\n", LAND_FLAG);
+    fprintf(stderr, "\t%s <meters>     Cell size in meters (e.g., 25.0)\n\n", SCALE_FLAG);
     
     fprintf(stderr, "OPTIONAL ARGUMENTS:\n");
-    fprintf(stderr, "\t--gens <N>            Number of time steps (default: 100)\n");
-    fprintf(stderr, "\t--seed <value>        Random seed (default: current time)\n");
-    fprintf(stderr, "\t--n-threads <N>       Number of threads to use (default: 2)\n\n");
+    fprintf(stderr, "\t%s <N>           Number of time steps (default: 100)\n", GENS_FLAG);
+    fprintf(stderr, "\t%s <value>       Random seed (default: current time)\n", SEED_FLAG);
+    fprintf(stderr, "\t%s <N>      Number of threads to use (default: 2)\n", N_THREADS_FLAG);
+    fprintf(stderr, "\t%s <file>         Output CSV file (default: None)\n\n", OUTPUT_FLAG);
     
     exit(1);
 }
@@ -54,9 +61,10 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
     *elevation_raster_file_name = NULL;
     *land_cover_raster_file_name = NULL;
     sim->scale = 0.00;
-    sim->generations = 100;
+    sim->generations = DEFAULT_GENS;
     sim->base_seed = time(NULL);
-    sim->n_threads = 2;
+    sim->n_threads = DEFAULT_THREADS;
+    sim->output_file = NULL;
 
     for (int i = 1; i < argc; i++)
     {
@@ -74,6 +82,8 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
             sim->base_seed = strtoul(argv[++i], NULL, 10);
         else if (strcmp(argv[i], N_THREADS_FLAG) == 0 && i + 1 < argc)
             sim->n_threads = atoi(argv[++i]);
+        else if (strcmp(argv[i], OUTPUT_FLAG) == 0 && i + 1 < argc)
+            sim->output_file = argv[++i];
         else
             print_usage();
     }
@@ -241,7 +251,6 @@ void fire_simulation_init(FireSimulation *sim, int argc, char **argv)
     }
     int size = elevation_raster_size; //elevation_raster_size == land_cover_raster_size
 
-    omp_set_num_threads(sim->n_threads);
     sim->rand = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(sim->rand, sim->base_seed);
 
@@ -272,6 +281,7 @@ float compute_p_slope(FireSimulation *sim, int i, int j, int k, int l)
 }
 
 // Very hardcoded where wind speed = 5.0 and wind dir = pi
+// This is also wrong lmao, get floated lmao
 float compute_wind_angle(FireSimulation *sim, int i, int j, int k, int l)
 {
     float wind_angle = PI;
@@ -293,7 +303,6 @@ float compute_p_wind(FireSimulation *sim, int i, int j, int k, int l)
     float f_t = exp(wind_velocity * C_2 * (cos(theta) - 1));
     return exp(C_1 * wind_velocity) * f_t;
 }
-
 
 float compute_p_burn(FireSimulation *sim, int i, int j, int k, int l)
 {
@@ -327,7 +336,7 @@ void spread_fire(FireSimulation *sim, int i, int j, gsl_rng *rand)
 
 void update_grid(FireSimulation *sim)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(sim->n_threads)
     for (int i = 0; i < sim->grid_height; i++)
         for (int j = 0; j < sim->grid_width; j++)
             sim->curr_grid[i][j] = sim->next_grid[i][j];
@@ -336,7 +345,7 @@ void update_grid(FireSimulation *sim)
 void simulate_step(FireSimulation *sim)
 {
     unsigned long disturbance = gsl_rng_uniform_int(sim->rand, ~0u);
-    #pragma omp parallel
+    #pragma omp parallel num_threads(sim->n_threads)
     {
         gsl_rng *local_rand = gsl_rng_alloc(gsl_rng_mt19937);
 
@@ -386,8 +395,8 @@ void fire_simulate(FireSimulation *sim)
     for (int i = 0; i < sim->generations; i++)
         simulate_step(sim);
 
-    //TODO Implement file output logic
-    write_grid_to_file(sim, "results/seed_0_gens_default_my.csv");
+    if (sim->output_file != NULL)
+        write_grid_to_file(sim, sim->output_file);
 }
 
 void fire_simulation_free(FireSimulation *sim)

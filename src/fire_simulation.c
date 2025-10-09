@@ -15,6 +15,8 @@
 #define HELP_FLAG "--help"
 #define DEM_FLAG "--dem"
 #define LAND_FLAG "--clc"
+#define WIND_ANGLE "--w-angle"
+#define WIND_VELOCITY "--w-speed"
 #define SCALE_FLAG "--scale"
 #define GENS_FLAG "--gens"
 #define SEED_FLAG "--seed"
@@ -34,32 +36,36 @@
 
 void print_usage()
 {
-    fprintf(stderr, "Usage: ./wildfire %s <file> %s <file> %s <meters> [OPTIONS]\n\n", DEM_FLAG, LAND_FLAG, SCALE_FLAG);
+    fprintf(stderr, "Usage: ./wildfire %s <file> %s <file> %s <[0-360]> %s <m/s> %s <meters> [OPTIONS]\n\n", DEM_FLAG, LAND_FLAG, WIND_ANGLE, WIND_VELOCITY, SCALE_FLAG);
 
     fprintf(stderr, "REQUIRED ARGUMENTS:\n");
-    fprintf(stderr, "\t%s <file>         Digital Elevation Model in XYZ format\n", DEM_FLAG);
-    fprintf(stderr, "\t%s <file>         Land cover data in XYZ format\n", LAND_FLAG);
-    fprintf(stderr, "\t%s <meters>     Cell size in meters (e.g., 25.0)\n\n", SCALE_FLAG);
+    fprintf(stderr, "\t%s <file>            Digital Elevation Model in XYZ format\n", DEM_FLAG);
+    fprintf(stderr, "\t%s <file>            Land cover data in XYZ format\n", LAND_FLAG);
+    fprintf(stderr, "\t%s <[0-360]>     Wind angle in respect to the horizontal east axis\n", WIND_ANGLE);
+    fprintf(stderr, "\t%s <m/s>         Wind speed in meters per second\n", WIND_VELOCITY);
+    fprintf(stderr, "\t%s <meters>        Cell size in meters (e.g., 25.0)\n\n", SCALE_FLAG);
     
     fprintf(stderr, "OPTIONAL ARGUMENTS:\n");
-    fprintf(stderr, "\t%s <N>           Number of time steps (default: 100)\n", GENS_FLAG);
-    fprintf(stderr, "\t%s <value>       Random seed (default: current time)\n", SEED_FLAG);
-    fprintf(stderr, "\t%s <N>      Number of threads to use (default: 2)\n", N_THREADS_FLAG);
-    fprintf(stderr, "\t%s <file>         Output CSV file (default: None)\n\n", OUTPUT_FLAG);
+    fprintf(stderr, "\t%s <N>              Number of time steps (default: 100)\n", GENS_FLAG);
+    fprintf(stderr, "\t%s <value>          Random seed (default: current time)\n", SEED_FLAG);
+    fprintf(stderr, "\t%s <N>         Number of threads to use (default: 2)\n", N_THREADS_FLAG);
+    fprintf(stderr, "\t%s <file>            Output CSV file (default: None)\n\n", OUTPUT_FLAG);
     
     exit(1);
 }
 
-int valid_args(FireSimulation *sim, char **elevation_raster_file_name, char **land_cover_raster_file_name)
+int valid_args(FireSimulation *sim, char *elevation_raster_file_name, char *land_cover_raster_file_name)
 {
-    return elevation_raster_file_name != NULL && land_cover_raster_file_name != NULL 
-        && sim->scale > 0 && sim->generations > 0 && sim->base_seed >= 0 && sim->n_threads > 0;
+    return elevation_raster_file_name != NULL && land_cover_raster_file_name != NULL && sim->wind_angle >= 0 && sim->wind_angle <= 360
+        && sim->wind_velocity >= 0 && sim->scale > 0 && sim->generations > 0 && sim->base_seed >= 0 && sim->n_threads > 0;
 }
 
 void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_raster_file_name, char **land_cover_raster_file_name)
 {
     *elevation_raster_file_name = NULL;
     *land_cover_raster_file_name = NULL;
+    sim->wind_angle = -1;
+    sim->wind_velocity = -1;
     sim->scale = 0.00;
     sim->generations = DEFAULT_GENS;
     sim->base_seed = time(NULL);
@@ -74,6 +80,10 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
             *elevation_raster_file_name = argv[++i];
         else if (strcmp(argv[i], LAND_FLAG) == 0 && i + 1 < argc)
             *land_cover_raster_file_name = argv[++i];
+        else if (strcmp(argv[i], WIND_ANGLE) == 0 && i + 1 < argc)
+            sim->wind_angle = strtod(argv[++i], NULL);
+        else if (strcmp(argv[i], WIND_VELOCITY) == 0 && i + 1 < argc)
+            sim->wind_velocity = strtod(argv[++i], NULL);
         else if (strcmp(argv[i], SCALE_FLAG) == 0 && i + 1 < argc)
             sim->scale = strtof(argv[++i], NULL);
         else if (strcmp(argv[i], GENS_FLAG) == 0 && i + 1 < argc)
@@ -88,7 +98,7 @@ void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_ras
             print_usage();
     }
 
-    if (!valid_args(sim, elevation_raster_file_name, land_cover_raster_file_name))
+    if (!valid_args(sim, *elevation_raster_file_name, *land_cover_raster_file_name))
         print_usage();
 }
 
@@ -97,13 +107,13 @@ int read_data(const char *elevation_raster_file_name, const char *land_cover_ras
     int elevation_raster_size;
     int land_cover_raster_size;
     *elevation_raster = raster_read_from_file(elevation_raster_file_name, &elevation_raster_size);
-    if (elevation_raster == NULL)
+    if (*elevation_raster == NULL)
     {
         fprintf(stderr, "Error while reading from %s\n", elevation_raster_file_name);
         exit(1);
     }
     *land_cover_raster = raster_read_from_file(land_cover_raster_file_name, &land_cover_raster_size);
-    if (land_cover_raster == NULL)
+    if (*land_cover_raster == NULL)
     {
         fprintf(stderr, "Error while reading from %s\n", land_cover_raster_file_name);
         free(elevation_raster);
@@ -282,6 +292,11 @@ void set_random_ignition_points(FireSimulation *sim, int n_points)
     free(valid_points);
 }
 
+double degree_to_radian(double degree_angle)
+{
+    return degree_angle * PI / 180;
+}
+
 void fire_simulation_init(FireSimulation *sim, int argc, char **argv)
 {
     char *elevation_raster_file_name;
@@ -297,6 +312,8 @@ void fire_simulation_init(FireSimulation *sim, int argc, char **argv)
     alloc_grids(sim);
     populate_grids(sim, elevation_raster, land_cover_raster, size);
     set_random_ignition_points(sim, 1);
+
+    sim->wind_angle = degree_to_radian(sim->wind_angle);
     
     free(elevation_raster);
     free(land_cover_raster);
@@ -319,38 +336,31 @@ double compute_p_slope(FireSimulation *sim, Index2D from, Index2D to)
     //return exp(ALPHA * theta); //Original where ALPHA = 0.078
 }
 
-double degree_to_radian(double_t degree_angle)
-{
-    return degree_angle * PI / 180;
-}
-
-// Very hardcoded where wind speed = 5.0 and wind dir = 180º
 double compute_wind_angle(FireSimulation *sim, Index2D from, Index2D to)
 {
-    double wind_angle = 180;
-    double wind_angle_rad = degree_to_radian(wind_angle);
-
     int discrete_x_len = (to.j - from.j);
-    int discrete_y_len = (to.i - from.i);
+    int discrete_y_len = (from.i - to.i);
+    double theta;
     if (discrete_x_len == 0)
-        return discrete_y_len > 0 ? PI * 0.5 : 1.5 * PI;
+    {
+        theta = discrete_y_len > 0 ? PI * 0.5 : 1.5 * PI;
+        return sim->wind_angle - theta;
+    }
 
     double x_len = (double) discrete_x_len * sim->scale;
     double y_len = (double) discrete_y_len * sim->scale;
-    double theta = atan2(y_len, x_len);
+    theta = atan2(y_len, x_len);
     if (theta < 0)
         theta += 2 * PI;
 
-    return wind_angle_rad - theta;
+    return sim->wind_angle - theta;
 }
 
 float compute_p_wind(FireSimulation *sim, Index2D from, Index2D to)
 {
-    double wind_velocity = 5.0;
-
     double theta = compute_wind_angle(sim, from, to);
-    double f_t = exp(wind_velocity * C_2 * (cos(theta) - 1));
-    return exp(C_1 * wind_velocity) * f_t;
+    double f_t = exp(sim->wind_velocity * C_2 * (cos(theta) - 1));
+    return exp(C_1 * sim->wind_velocity) * f_t;
 }
 
 float compute_p_burn(FireSimulation *sim, Index2D from, Index2D to)

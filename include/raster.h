@@ -8,7 +8,7 @@ typedef struct RasterPoint
     int z_value;
 } RasterPoint;
 
-RasterPoint *raster_read_from_file(const char *filename, int *raster_size);
+RasterPoint* raster_read_from_file(const char *filename, int *raster_size);
 
 typedef struct RasterBound
 {

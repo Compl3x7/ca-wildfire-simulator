@@ -15,6 +15,8 @@ typedef struct FireSimulation
     float scale;
     Cell **curr_grid;
     Cell **next_grid;
+    double wind_angle;
+    double wind_velocity;
     int generations;
     int n_threads;
     gsl_rng **thread_rand;

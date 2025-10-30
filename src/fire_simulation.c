@@ -10,8 +10,6 @@
 #include "cell.h"
 #include "fire_simulation.h"
 
-#define DATASET_COUNT 2
-
 #define HELP_FLAG "--help"
 #define DEM_FLAG "--dem"
 #define LAND_FLAG "--clc"
@@ -54,10 +52,11 @@ void print_usage()
     exit(1);
 }
 
+//TODO Seed check
 int valid_args(FireSimulation *sim, char *elevation_raster_file_name, char *land_cover_raster_file_name)
 {
     return elevation_raster_file_name != NULL && land_cover_raster_file_name != NULL && sim->wind_angle >= 0 && sim->wind_angle <= 360
-        && sim->wind_velocity >= 0 && sim->scale > 0 && sim->generations > 0 && sim->base_seed >= 0 && sim->n_threads > 0;
+        && sim->wind_velocity >= 0 && sim->scale > 0 && sim->generations > 0 && sim->n_threads > 0;
 }
 
 void parse_args(FireSimulation *sim, int argc, char **argv, char **elevation_raster_file_name, char **land_cover_raster_file_name)
@@ -202,7 +201,7 @@ void fire_simulation_free(FireSimulation *sim)
 }
 
 //TODO Needs check ?
-void populate_grids_elevation(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
+void populate_grids_elevation(FireSimulation *sim, RasterPoint *elevation_raster, int size)
 {
     for (int i = 0; i < size; i++)
     {
@@ -239,7 +238,7 @@ void populate_grids_land_cover(FireSimulation *sim, RasterPoint *elevation_raste
 
 void populate_grids(FireSimulation *sim, RasterPoint *elevation_raster, RasterPoint *land_cover_raster, int size)
 {
-    populate_grids_elevation(sim, elevation_raster, land_cover_raster, size);
+    populate_grids_elevation(sim, elevation_raster, size);
     populate_grids_land_cover(sim, elevation_raster, land_cover_raster, size);
 }
 
@@ -327,13 +326,15 @@ double compute_p_distance(Index2D from, Index2D to)
 double compute_p_slope(FireSimulation *sim, Index2D from, Index2D to)
 {
     double distance = from.i != to.i && from.j != to.j ? SQRT_2 * sim->scale : sim->scale;
-    double ax = ALPHA * ((double) (sim->curr_grid[to.i][to.j].elevation - sim->curr_grid[from.i][from.j].elevation) / distance);
-    double slope_factor = ax / sqrt(1 + ax * ax);
-    if (ax < 0)
-        slope_factor *= 0.5;
+    double theta = atan((double) (sim->curr_grid[to.i][to.j].elevation - sim->curr_grid[from.i][from.j].elevation) / distance);
+    return exp(ALPHA * theta);
 
-    return slope_factor + 1; 
-    //return exp(ALPHA * theta); //Original where ALPHA = 0.078
+    // double ax = ALPHA * ((double) (sim->curr_grid[to.i][to.j].elevation - sim->curr_grid[from.i][from.j].elevation) / distance);
+    // double slope_factor = ax / sqrt(1 + ax * ax);
+    // if (ax < 0)
+    //     slope_factor *= 0.5;
+
+    // return slope_factor + 1;
 }
 
 double compute_wind_angle(FireSimulation *sim, Index2D from, Index2D to)
@@ -366,12 +367,12 @@ float compute_p_wind(FireSimulation *sim, Index2D from, Index2D to)
 float compute_p_burn(FireSimulation *sim, Index2D from, Index2D to)
 {
     double p_veg = get_p_veg_value(sim->curr_grid[to.i][to.j].land_type);
-    double p_distance = compute_p_distance(from, to);
+    // double p_distance = compute_p_distance(from, to);
     double p_slope = compute_p_slope(sim, from, to);
     double p_wind = compute_p_wind(sim, from, to);
 
-    return p_veg * p_distance * p_slope * p_wind;
-    //return P_H * (1.0 + p_veg) * p_slope * p_wind; //Orignal with different P_VEG values
+    // return p_veg * p_distance * p_slope * p_wind;
+    return P_H * (1.0 + p_veg) * p_slope * p_wind; //Orignal with different P_VEG values
 }
 
 int in_bounds(FireSimulation *sim, Index2D index)
@@ -410,7 +411,7 @@ void simulate_step(FireSimulation *sim)
     {
         gsl_rng *local_rand = sim->thread_rand[omp_get_thread_num()];
 
-        #pragma omp for nowait
+        #pragma omp for schedule(dynamic) nowait
         for (int i = 0; i < sim->grid_height; i++)
         {
             gsl_rng_set(local_rand, disturbance + i);

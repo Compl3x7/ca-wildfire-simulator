@@ -27,8 +27,8 @@
 #define SQRT_2 1.41421356237
 #define PI 3.14159265359
 #define P_H 0.58
-//#define ALPHA 0.078
-#define ALPHA 0.727
+#define ALPHA 0.078
+//#define ALPHA 0.727
 #define C_1 0.045
 #define C_2 0.131
 

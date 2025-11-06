@@ -157,11 +157,11 @@ void compute_grid_size(FireSimulation *sim, RasterPoint *elevation_raster, Raste
 
 void alloc_rngs(FireSimulation *sim)
 {
-    sim->rand = gsl_rng_alloc(gsl_rng_mt19937);
+    sim->rand = gsl_rng_alloc(gsl_rng_taus2);
     gsl_rng_set(sim->rand, sim->base_seed);
     sim->thread_rand = malloc(sim->n_threads * sizeof(gsl_rng*));
     for (int i = 0; i < sim->n_threads; i++)
-        sim->thread_rand[i] = gsl_rng_alloc(gsl_rng_mt19937);
+        sim->thread_rand[i] = gsl_rng_alloc(gsl_rng_taus2);
 }
 
 void free_rngs(FireSimulation *sim)

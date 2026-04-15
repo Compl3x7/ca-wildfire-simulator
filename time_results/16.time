@@ -153,3 +153,8 @@ Total time: 58.306306s
 Init time: 14.695870s
 Sim time: 43.608575s
 Free time: 0.001861s
+
+Average Total Time: 55.50487138709676s
+Average Init Time:  14.644578161290324s
+Average Sim Time:   40.85837812903226s
+Average Free Time:  0.0019150645161290325s

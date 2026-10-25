@@ -56,7 +56,7 @@ make clean      # Remove all binaries and the build directory
 
 Run the simulator `wildfire` located in `build/` with the required arguments. Use `--help` for the full list.
 
-```bash
+```
 $ ./build/wildfire --help
 Usage: ./wildfire --dem <file> --clc <file> --w-angle <degrees> --w-speed <m/s> --scale <meters> [OPTIONS]
 
@@ -76,7 +76,7 @@ OPTIONAL ARGUMENTS:
 
 The `demo_data/` directory includes some sample data ready for use. A minimal example run:
 
-```bash
+```
 $ ./build/wildfire --dem demo_data/demo_dem_25m.xyz --clc demo_data/demo_clc_25m.xyz --w-angle 0 --w-speed 7.5 --scale 25
 Total time: 0.295359s
 Init time: 0.228275s
@@ -104,7 +104,7 @@ Geographic Information Systems (GIS) software such as [QGIS](https://www.qgis.or
 
 ### 4. Running with your data
 
-```bash
+```
 ./build/wildfire --dem path/to/dem.xyz --clc path/to/clc.xyz --w-angle 90 --w-speed 5.0 --scale 100
 ```
 

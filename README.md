@@ -139,4 +139,4 @@ This project builds on the following studies:
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3). See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU General Public License v3.0 (GPLv3).

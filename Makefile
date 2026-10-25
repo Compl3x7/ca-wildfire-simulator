@@ -4,13 +4,23 @@ SRCDIR = src
 INCDIR = include
 BUILDDIR = build
 
-CFLAGS = -I$(INCDIR) $(SRCDIR)/*.c -Wall -Wextra -Wpedantic -O3
+
+SRCS = $(wildcard $(SRCDIR)/*.c)
+
+CFLAGS = -I$(INCDIR) -Wall -Wextra -Wpedantic -O3
 LIBS = -lm -lgsl -lgslcblas -fopenmp
 
 PROGRAM = wildfire
 
-build:
-	$(CC) -o $(PROGRAM) $(CFLAGS) $(LIBS)
+.PHONY: all clean
+
+all: $(BUILDDIR)/$(PROGRAM)
+
+$(BUILDDIR):
+	@mkdir -p -- "$@"
+
+$(BUILDDIR)/$(PROGRAM): $(SRCS) | $(BUILDDIR)
+	$(CC) $(SRCS) -o $@ $(CFLAGS) $(LIBS)
 
 clean:
-	rm -f $(PROGRAM)
+	rm -rf -- "$(BUILDDIR)"

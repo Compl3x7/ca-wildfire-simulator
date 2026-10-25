@@ -34,20 +34,20 @@
 
 void print_usage()
 {
-    fprintf(stderr, "Usage: ./wildfire %s <file> %s <file> %s <[0-360]> %s <m/s> %s <meters> [OPTIONS]\n\n", DEM_FLAG, LAND_FLAG, WIND_ANGLE, WIND_VELOCITY, SCALE_FLAG);
+    fprintf(stderr, "Usage: ./wildfire %s <file> %s <file> %s <degrees> %s <m/s> %s <meters> [OPTIONS]\n\n", DEM_FLAG, LAND_FLAG, WIND_ANGLE, WIND_VELOCITY, SCALE_FLAG);
 
     fprintf(stderr, "REQUIRED ARGUMENTS:\n");
     fprintf(stderr, "\t%s <file>            Digital Elevation Model in XYZ format\n", DEM_FLAG);
     fprintf(stderr, "\t%s <file>            Land cover data in XYZ format\n", LAND_FLAG);
-    fprintf(stderr, "\t%s <[0-360]>     Wind angle in respect to the horizontal east axis\n", WIND_ANGLE);
+    fprintf(stderr, "\t%s <degrees>     Wind angle [0-360] with respect to the horizontal east axis\n", WIND_ANGLE);
     fprintf(stderr, "\t%s <m/s>         Wind speed in meters per second\n", WIND_VELOCITY);
     fprintf(stderr, "\t%s <meters>        Cell size in meters (e.g., 25.0)\n\n", SCALE_FLAG);
     
     fprintf(stderr, "OPTIONAL ARGUMENTS:\n");
     fprintf(stderr, "\t%s <N>              Number of time steps (default: 100)\n", GENS_FLAG);
-    fprintf(stderr, "\t%s <value>          Random seed (default: current time)\n", SEED_FLAG);
+    fprintf(stderr, "\t%s <value>          Random seed (default: system time)\n", SEED_FLAG);
     fprintf(stderr, "\t%s <N>         Number of threads to use (default: 2)\n", N_THREADS_FLAG);
-    fprintf(stderr, "\t%s <file>            Output CSV file (default: None)\n\n", OUTPUT_FLAG);
+    fprintf(stderr, "\t%s <file>            Output CSV file (default: no output written)\n\n", OUTPUT_FLAG);
     
     exit(1);
 }
@@ -161,7 +161,7 @@ void alloc_rngs(FireSimulation *sim)
     gsl_rng_set(sim->rand, sim->base_seed);
     sim->thread_rand = malloc(sim->n_threads * sizeof(gsl_rng*));
     for (int i = 0; i < sim->n_threads; i++)
-        sim->thread_rand[i] = gsl_rng_alloc(gsl_rng_19937);
+        sim->thread_rand[i] = gsl_rng_alloc(gsl_rng_mt19937);
 }
 
 void free_rngs(FireSimulation *sim)

@@ -1,9 +1,12 @@
 # Data dir
 data/
 results/
+
 # Binaries dir/files
+build/
 wildfire
 *.out
+
 # Python virtual env
 .venv/
 

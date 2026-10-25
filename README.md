@@ -47,7 +47,7 @@ ca-wildfire-simulator/
 
 The included Makefile supports the following targets:
 
-```bash
+```
 make            # Build the simulator (same as make all)
 make clean      # Remove all binaries and the build directory
 ```

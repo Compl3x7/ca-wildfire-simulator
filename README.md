@@ -4,11 +4,11 @@ A C implementation of a wildfire spread simulator based on the Probabilistic Cel
 
 ## Overview
 
-This simulator models wildfire propagation across a heterogeneous landscape using a probabilistic cellular automaton. A cell's state may evolve stochastically or deterministically: the `UNIGNITED` → `BURNING` transition is probabilistic, with ignition probability derived from vegetation type, slope, wind, and neighboring states, while the `BURNING` → `BURNT` transition is deterministic, following the Alexandridis et al. model.
+This simulator models wildfire propagation across a heterogeneous landscape using a probabilistic cellular automaton. A cell's state may evolve stochastically or deterministically: the `UNIGNITED` → `BURNING` transition is probabilistic, with ignition probability derived from vegetation type, slope, wind, and neighboring states, while the `BURNING` → `BURNT` transition is deterministic, closely following the Alexandridis et al. model.
 
 ## Features
 
-- PCA wildfire model based on Alexandridis et al. and related studies (see [Model reference](#model-reference))
+- PCA wildfire model based on Alexandridis et al. and other related studies (see [Model reference](#model-reference))
 - Support for `.xyz` raster files for elevation data (SRTM) and land cover data (CORINE)
 - State transitions driven by vegetation type, slope, wind (global vector), and neighborhood
 - Parallelized execution using OpenMP
@@ -33,15 +33,15 @@ ca-wildfire-simulator/
 
 ## Dependencies
 
-| Dependency | Type     | Purpose                                         |
-|------------|----------|-------------------------------------------------|
-| `gcc`      | Build    | C compiler (C99+)                               |
-| GNU Make   | Build    | Build automation (via `Makefile`)               |
-| GSL        | Runtime  | Numerical routines and random number generation |
-| GSL CBLAS  | Runtime  | BLAS backend used by GSL                        |
-| OpenMP     | Runtime  | Shared-memory parallelization                   |
-| `libm`     | Runtime  | Standard C math library                         |
-| Python 3   | Optional | Running scripts in `py_tools/` (visualization)  |
+| Dependency | Type     | Purpose                                        |
+|------------|----------|------------------------------------------------|
+| `gcc`      | Build    | C compiler                                     |
+| GNU Make   | Build    | Compilation via `Makefile`                     |
+| `libm`     | Runtime  | Standard C math library                        |
+| GSL        | Runtime  | Random number generation                       |
+| GSL CBLAS  | Runtime  | BLAS backend used by GSL                       |
+| OpenMP     | Runtime  | Shared-memory parallelization                  |
+| Python 3   | Optional | Running scripts in `py_tools/` (visualization) |
 
 ## Build
 
@@ -84,11 +84,11 @@ Sim time: 0.067069s
 Free time: 0.000015s
 ```
 
-The program outputs execution times for the total execution and its initialization, simulation, and finalization stages. These measurements are useful for benchmarking the model across configurations.
+The program outputs execution times for the total execution and its initialization, simulation, and finalization stages. These measurements are useful for benchmarking the model across different configurations.
 
 ## Using your own data
 
-The simulator accepts any Digital Elevation Model (DEM) and land cover (CLC) raster that is provided in the expected `.xyz` format, provided both rasters share the same grid, that is, the same origin, Coordinate Reference System (CRS), cell size (scale), and dimensions. Otherwise, the program exits with a corresponding error message. As a rule of thumb, verify that both rasters share the same grid before running the simulator. The following steps briefly outline how to obtain, align, export, and run the simulator with custom data.
+The simulator accepts any Digital Elevation Model (DEM) and land cover (CLC) raster that is provided in the expected `.xyz` format, as long as both rasters share the same grid, that is, the same origin, Coordinate Reference System (CRS), cell size (scale), and dimensions. Otherwise, the program exits with a corresponding error message. As a rule of thumb, verify that both rasters share the same grid before running the simulator. The following steps briefly outline how to obtain, align, export, and run the simulator with custom data.
 
 ### 1. Digital elevation model (DEM)
 
@@ -112,14 +112,12 @@ Set `--scale` according to the cell size of your rasters (in meters).
 
 ## Demo data sources
 
-The data in `demo_data/` is a small, arbitrarily chosen subset of the following sources, at a scale of 25 m:
+The data in `demo_data/` is a small, arbitrarily chosen portion of the following sources, at a scale of 25 m:
 
 - [Portugal DEM](https://www.fc.up.pt/pessoas/jagoncal/dems/)
 - [CLC 2018](https://land.copernicus.eu/en/products/corine-land-cover/clc2018)
 
 ## Model reference
-
-This project builds on the following studies:
 
 - [Alexandridis et al. (2008), *A cellular automata model for forest fire spread prediction: The case of the wildfire that swept through Spetses Island in 1990*](https://doi.org/10.1016/j.amc.2008.06.046)
 - [Alexandridis et al. (2011), *Wildland fire spread modelling using cellular automata: evolution in large-scale spatially heterogeneous environments under fire suppression tactics*](https://doi.org/10.1071/WF09119)

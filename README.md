@@ -33,15 +33,24 @@ ca-wildfire-simulator/
 
 ## Dependencies
 
-| Dependency | Type     | Purpose                                        |
-|------------|----------|------------------------------------------------|
-| `gcc`      | Build    | C compiler                                     |
-| GNU Make   | Build    | Compilation via `Makefile`                     |
-| `libm`     | Runtime  | Standard C math library                        |
-| GSL        | Runtime  | Random number generation                       |
-| GSL CBLAS  | Runtime  | BLAS backend used by GSL                       |
-| OpenMP     | Runtime  | Shared-memory parallelization                  |
-| Python 3   | Optional | Running scripts in `py_tools/` (visualization) |
+### Simulator
+
+| Dependency                               | Type     | Purpose                       |
+|------------------------------------------|----------|-------------------------------|
+| `gcc`                                    | Build    | C compiler                    |
+| GNU Make                                 | Build    | Compilation via `Makefile`    |
+| `libm`                                   | Runtime  | Standard C math library       |
+| [GSL](https://www.gnu.org/software/gsl/) | Runtime  | Random number generation      |
+| GSL CBLAS                                | Runtime  | BLAS backend used by GSL      |
+| OpenMP                                   | Runtime  | Shared-memory parallelization |
+
+### Python tools (`py_tools/`)
+
+| Dependency                           | Type     | Purpose                              |
+|--------------------------------------|----------|--------------------------------------|
+| [Python 3](https://www.python.org/)  | Optional | Python interpreter                   |
+| [NumPy](https://numpy.org/)          | Optional | Numerical arrays for grid storage    |
+| [Pillow](https://python-pillow.org/) | Optional | Image creation, resizing, and saving |
 
 ## Build
 
@@ -110,6 +119,16 @@ Geographic Information Systems (GIS) software such as [QGIS](https://www.qgis.or
 
 Set `--scale` according to the cell size of your rasters (in meters).
 
+## Visualizing
+
+If any output was generated, it can be visualized using the `gen_image.py` tool, located in `py_tools/`.
+
+```
+$ python gen_image.py path/to/output.csv path/to/image.png <scale>
+```
+
+With `<scale>` being a scaling factor.
+
 ## Demo data sources
 
 The data in `demo_data/` is a small, arbitrarily chosen portion of the following sources, at a scale of 25 m:
@@ -137,4 +156,4 @@ The data in `demo_data/` is a small, arbitrarily chosen portion of the following
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3).
+This project is licensed under the GNU General Public License v3.0 (GPLv3). See [LICENSE](LICENSE) for more details.

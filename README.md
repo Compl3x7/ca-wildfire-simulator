@@ -133,8 +133,8 @@ With `<scale>` being a scaling factor.
 
 The data in `demo_data/` is a small, arbitrarily chosen portion of the following sources, at a scale of 25 m:
 
-- [Portugal DEM](https://www.fc.up.pt/pessoas/jagoncal/dems/)
-- [CLC 2018](https://land.copernicus.eu/en/products/corine-land-cover/clc2018)
+- [Portugal DEM](https://www.fc.up.pt/pessoas/jagoncal/dems/). Derived from NASA SRTM data, prepared by FCUP. Modified: cropped.
+- [CLC 2018](https://land.copernicus.eu/en/products/corine-land-cover/clc2018). European Union's Copernicus Land Monitoring Service information. Modified: cropped and resampled.
 
 ## Model reference
 
@@ -156,4 +156,14 @@ The data in `demo_data/` is a small, arbitrarily chosen portion of the following
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3). See [LICENSE](LICENSE) for more details.
+This project is licensed under the GNU General Public License v3.0 (GPLv3) or later. See [LICENSE](LICENSE) for more details.
+
+## Third party licenses
+
+This project uses the following third party licenses, see [LICENSES](LICENSES) for more details.
+
+| Dependency | License Type     | Copyright Notice |
+|------------|------------------|------------------|
+| GSL        | GPLv3 (or later) | Copyright (c) 1996-2024 The GSL Team |
+| NumPy      | BSD 3-Clause     | Copyright (c) 2005-2025, NumPy Developers. All rights reserved. |
+| Pillow     | MIT-CMU          | Copyright (c) 1997-2011 by Secret Labs AB<br>Copyright (c) 1995-2011 by Fredrik Lundh and contributors<br>Copyright (c) 2010 by Jeffrey 'Alex' Clark and contributors |

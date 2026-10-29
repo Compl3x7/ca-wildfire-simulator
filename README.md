@@ -35,22 +35,22 @@ ca-wildfire-simulator/
 
 ### Simulator
 
-| Dependency                               | Type     | Purpose                       |
-|------------------------------------------|----------|-------------------------------|
-| `gcc`                                    | Build    | C compiler                    |
-| GNU Make                                 | Build    | Compilation via `Makefile`    |
-| `libm`                                   | Runtime  | Standard C math library       |
-| [GSL](https://www.gnu.org/software/gsl/) | Runtime  | Random number generation      |
-| GSL CBLAS                                | Runtime  | BLAS backend used by GSL      |
-| OpenMP                                   | Runtime  | Shared-memory parallelization |
+| Dependency | Type     | Purpose                       |
+|------------|----------|-------------------------------|
+| `gcc`      | Build    | C compiler                    |
+| GNU Make   | Build    | Compilation via `Makefile`    |
+| `libm`     | Runtime  | Standard C math library       |
+| GSL        | Runtime  | Random number generation      |
+| GSL CBLAS  | Runtime  | BLAS backend used by GSL      |
+| OpenMP     | Runtime  | Shared-memory parallelization |
 
 ### Python tools (`py_tools/`)
 
-| Dependency                           | Type     | Purpose                              |
-|--------------------------------------|----------|--------------------------------------|
-| [Python 3](https://www.python.org/)  | Optional | Python interpreter                   |
-| [NumPy](https://numpy.org/)          | Optional | Numerical arrays for grid storage    |
-| [Pillow](https://python-pillow.org/) | Optional | Image creation, resizing, and saving |
+| Dependency | Type     | Purpose                              |
+|------------|----------|--------------------------------------|
+| Python 3   | Optional | Python interpreter                   |
+| NumPy      | Optional | Numerical arrays for grid storage    |
+| Pillow     | Optional | Image creation, resizing, and saving |
 
 ## Build
 
@@ -129,6 +129,17 @@ $ python gen_image.py path/to/output.csv path/to/image.png <scale>
 
 With `<scale>` being a scaling factor.
 
+## Future work (unordered, subject to change)
+
+- [ ] **GUI** - implement a graphical user interface.
+- [ ] **Ensemble simulations** - support ensembles of simulations to obtain probabilistic burn maps.
+- [ ] **Contiguous grid storage** - optimize grids to be stored as contiguous 1D arrays, rather than the current 2D approach.
+- [ ] **GPU acceleration** - parallelize the model on GPUs with CUDA/HIP.
+- [ ] **I/O performance** - initial I/O is currently a bottleneck.
+- [ ] **Input initial state** - allow the user to supply an initial grid state, rather than relying on a random selection of ignition points.
+- [ ] **Wind model** - implement wind with a per-cell wind vector to support real wind data, possibly including wind changes over time.
+- [ ] **Model realism** - improve overall model realism, in tandem with the wind model improvements.
+
 ## Demo data sources
 
 The data in `demo_data/` is a small, arbitrarily chosen portion of the following sources, at a scale of 25 m:
@@ -143,27 +154,15 @@ The data in `demo_data/` is a small, arbitrarily chosen portion of the following
 - [Freire & DaCamara (2018), *Using cellular automata to simulate wildfire propagation and to assist in fire management*](https://doi.org/10.5194/nhess-19-169-2019)
 - [Mota (2019), *Modelling propagation of wildfires using cellular automata*](https://fenix.tecnico.ulisboa.pt/downloadFile/563345090417473/Thesis_Barbara_Mota_final.pdf)
 
-## Future work (unordered, subject to change)
-
-- [ ] **GUI** - implement a graphical user interface.
-- [ ] **Ensemble simulations** - support ensembles of simulations to obtain probabilistic burn maps.
-- [ ] **Contiguous grid storage** - optimize grids to be stored as contiguous 1D arrays, rather than the current 2D approach.
-- [ ] **GPU acceleration** - parallelize the model on GPUs with CUDA/HIP.
-- [ ] **I/O performance** - initial I/O is currently a bottleneck.
-- [ ] **Input initial state** - allow the user to supply an initial grid state, rather than relying on a random selection of ignition points.
-- [ ] **Wind model** - implement wind with a per-cell wind vector to support real wind data, possibly including wind changes over time.
-- [ ] **Model realism** - improve overall model realism, in tandem with the wind model improvements.
-
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) or later. See [LICENSE](LICENSE) for more details.
 
-## Third party licenses
+## Third party libraries
 
-This project uses the following third party licenses, see [LICENSES](LICENSES) for more details.
+This project uses the following third party libraries. Full license texts and
+copyright notices are in [LICENSES](LICENSES).
 
-| Dependency | License Type     | Copyright Notice |
-|------------|------------------|------------------|
-| GSL        | GPLv3 (or later) | Copyright (c) 1996-2024 The GSL Team |
-| NumPy      | BSD 3-Clause     | Copyright (c) 2005-2025, NumPy Developers. All rights reserved. |
-| Pillow     | MIT-CMU          | Copyright (c) 1997-2011 by Secret Labs AB<br>Copyright (c) 1995-2011 by Fredrik Lundh and contributors<br>Copyright (c) 2010 by Jeffrey 'Alex' Clark and contributors |
+- [GNU Scientific Library](https://www.gnu.org/software/gsl/)
+- [NumPy](https://numpy.org/)
+- [Pillow](https://python-pillow.org/)
